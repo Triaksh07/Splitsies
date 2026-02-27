@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex items-center justify-center min-h-[80vh]">
+    <div class="card w-full max-w-md bg-base-100 shadow-xl">
+        <div class="card-body">
+            <h2 class="card-title text-2xl font-bold justify-center mb-6">Create Account</h2>
+
+            {% if error %}
+            <div class="alert alert-error mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none"
+                    viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>{{ error }}</span>
+            </div>
+            {% endif %}
+
+            <form action="/auth/register" method="POST" class="space-y-4">
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text">Full Name</span>
+                    </label>
+                    <input type="text" name="name" placeholder="John Doe" class="input input-bordered w-full"
+                        required />
+                </div>
+
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text">Email</span>
+                    </label>
+                    <input type="email" name="email" placeholder="you@example.com" class="input input-bordered w-full"
+                        required />
+                </div>
+
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text">Password</span>
+                    </label>
+                    <input type="password" name="password" placeholder="••••••••" class="input input-bordered w-full"
+                        required minlength="8" />
+                </div>
+
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text">Preferred Default Currency</span>
+                    </label>
+                    <select name="preferred_currency" class="select select-bordered w-full">
+                        <option value="INR" selected>INR (₹)</option>
+                        <option value="USD">USD ($)</option>
+                        <option value="GBP">GBP (£)</option>
+                    </select>
+                </div>
+
+                <div class="form-control mt-6">
+                    <button type="submit" class="btn btn-primary w-full">Sign Up</button>
+                </div>
+            </form>
+
+            <div class="divider mt-6">OR</div>
+
+            <div class="text-center mt-4">
+                <p class="text-sm">Already have an account? <a href="/auth/login"
+                        class="link link-primary font-medium hover:text-primary-focus transition-colors">Log in</a></p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

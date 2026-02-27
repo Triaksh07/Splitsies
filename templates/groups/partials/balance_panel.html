@@ -1,0 +1,135 @@
+<div id="balance-panel-content" class="space-y-6">
+    <!-- Settlement Instructions (Greedy simplified debts) -->
+    {% if debt_instructions %}
+    <div class="bg-base-200 rounded-xl p-5 border border-base-300">
+        <h3 class="font-bold flex items-center mb-4 text-sm uppercase tracking-wider text-base-content/70">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+            </svg>
+            How To Settle Up (Members)
+        </h3>
+        <div class="space-y-3">
+            {% for debt in debt_instructions %}
+            <div class="flex items-center justify-between p-3 bg-base-100 rounded-lg border border-base-300 shadow-sm">
+                <div class="flex flex-col flex-1">
+                    <span class="text-sm font-medium">{{ debt.from_name }} owes {{ debt.to_name }}</span>
+                    <span class="text-lg font-bold text-primary">₹{{ "%.2f"|format(debt.amount_inr) }}</span>
+                </div>
+
+                {% if debt.from_id == user.id or debt.to_id == user.id %}
+                <form hx-post="/groups/{{ group.id }}/settlements" hx-target="#balance-panel" hx-swap="outerHTML"
+                    class="m-0">
+                    <input type="hidden" name="from_participant_id" value="{{ debt.from_id }}">
+                    <input type="hidden" name="to_participant_id" value="{{ debt.to_id }}">
+                    <input type="hidden" name="amount" value="{{ debt.amount_inr }}">
+                    <input type="hidden" name="currency" value="INR">
+                    <input type="hidden" name="settlement_date" value="{{ today }}">
+                    <input type="hidden" name="notes" value="Quick settle via dashboard">
+                    <button type="submit" class="btn btn-sm btn-primary">Settle</button>
+                </form>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="bg-success/10 text-success rounded-xl p-4 border border-success/20 flex gap-3 text-sm">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24"
+            stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span>All members are settled up! Nothing is owed.</span>
+    </div>
+    {% endif %}
+
+    <!-- Individual Balances -->
+    <div>
+        <h3 class="font-bold flex items-center mb-4 text-sm uppercase tracking-wider text-base-content/70">
+            Current Net Balances
+        </h3>
+        <div class="space-y-2">
+            {% for balance in balances %}
+            {% if not balance.is_guest %}
+            <div
+                class="flex items-center justify-between p-3 bg-base-100/50 rounded-lg hover:bg-base-200 transition-colors">
+                <div class="flex items-center gap-3">
+                    <div class="avatar placeholder">
+                        <div
+                            class="w-8 rounded-full {% if balance.participant_id == user.id %}bg-primary text-primary-content{% else %}bg-neutral text-neutral-content{% endif %}">
+                            <span class="text-xs">{{ balance.display_name[0] | upper }}</span>
+                        </div>
+                    </div>
+                    <span class="font-medium {% if balance.participant_id == user.id %}text-primary{% endif %}">
+                        {{ balance.display_name }} {% if balance.participant_id == user.id %}(You){% endif %}
+                    </span>
+                </div>
+                <div class="text-right">
+                    {% if balance.net_inr > 0 %}
+                    <span class="text-success font-bold block whitespace-nowrap">+ ₹{{ "%.2f"|format(balance.net_inr)
+                        }}</span>
+                    <span class="text-[10px] text-base-content/50 uppercase leading-none block">gets back</span>
+                    {% elif balance.net_inr < 0 %} <span class="text-error font-bold block whitespace-nowrap">- ₹{{
+                        "%.2f"|format(balance.net_inr|abs) }}</span>
+                        <span class="text-[10px] text-base-content/50 uppercase leading-none block">owes</span>
+                        {% else %}
+                        <span class="text-base-content/50 font-medium block whitespace-nowrap">₹0.00</span>
+                        <span class="text-[10px] text-base-content/50 uppercase leading-none block">settled</span>
+                        {% endif %}
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Guests Section -->
+    {% set has_guests = false %}
+    {% for b in balances if b.is_guest %}
+    {% set has_guests = true %}
+    {% endfor %}
+
+    {% if has_guests %}
+    <div class="mt-8 pt-6 border-t border-base-300 border-dashed">
+        <h3 class="font-bold flex items-center mb-4 text-sm uppercase tracking-wider text-base-content/70">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            Guest Balances (External)
+        </h3>
+        <p class="text-xs text-base-content/50 mb-4 leading-relaxed">Guests are not factored into the main group
+            settlement algorithm to avoid complicating member debts. The member who paid for a guest should collect from
+            them directly.</p>
+
+        <div class="space-y-2">
+            {% for balance in balances %}
+            {% if balance.is_guest %}
+            <div class="flex items-center justify-between p-3 bg-base-200/50 rounded-lg">
+                <div class="flex items-center gap-3">
+                    <div class="avatar placeholder">
+                        <div class="w-8 rounded-full bg-base-300 text-base-content/70">
+                            <span class="text-xs">{{ balance.display_name[0] | upper }}</span>
+                        </div>
+                    </div>
+                    <span class="font-medium text-sm">{{ balance.display_name }} <span
+                            class="badge badge-xs badge-ghost ml-1">Guest</span></span>
+                </div>
+                <div class="text-right">
+                    {% if balance.net_inr < 0 %} <span class="text-error font-bold text-sm block whitespace-nowrap">-
+                        ₹{{ "%.2f"|format(balance.net_inr|abs) }}</span>
+                        <span class="text-[10px] text-base-content/50 uppercase leading-none block">owes group</span>
+                        {% else %}
+                        <span class="text-base-content/50 font-medium text-sm block whitespace-nowrap">₹0.00</span>
+                        {% endif %}
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+</div>

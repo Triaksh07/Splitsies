@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="text-sm breadcrumbs mb-6 text-base-content/70">
+    <ul>
+        <li><a href="/groups" class="hover:text-primary transition-colors">Groups</a></li>
+        <li><a href="/groups/{{ group_id }}" class="hover:text-primary transition-colors">Group Detail</a></li>
+        <li class="text-base-content font-medium">Dashboard</li>
+    </ul>
+</div>
+
+<div class="mb-8">
+    <h1 class="text-3xl font-bold mb-2">Analytics Dashboard</h1>
+    <p class="text-lg text-base-content/80">{{ summary }}</p>
+</div>
+
+<!-- Stats Overview -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <!-- Velocity -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-5">
+            <h3 class="text-sm font-bold text-base-content/60 uppercase tracking-wider mb-1">Spent This Month</h3>
+            <div class="text-3xl font-bold">₹{{ "%.0f"|format(velocity.current) }}</div>
+            {% if velocity.change_pct != None %}
+            <div
+                class="text-sm mt-2 flex items-center gap-1 font-medium {% if velocity.trend == 'up' %}text-error{% elif velocity.trend == 'down' %}text-success{% else %}text-base-content/60{% endif %}">
+                {% if velocity.trend == 'up' %}
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+                {% elif velocity.trend == 'down' %}
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+                </svg>
+                {% endif %}
+                {{ velocity.change_pct|abs }}% from last month
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Fairness -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-5">
+            <h3 class="text-sm font-bold text-base-content/60 uppercase tracking-wider mb-1">Fairness Score</h3>
+            <div class="flex items-end gap-2">
+                <div class="text-3xl font-bold">{{ fairness if fairness != None else "N/A" }}</div>
+                {% if fairness != None %}
+                <div class="text-sm font-bold text-base-content/50 mb-1">/ 100</div>
+                {% endif %}
+            </div>
+            <div class="text-sm mt-2 text-base-content/60">
+                {% if fairness == None %}
+                Need more data
+                {% elif fairness >= 80 %}
+                <span class="text-success font-medium">Excellent distribution</span>
+                {% elif fairness >= 50 %}
+                <span class="text-warning font-medium">Needs rebalancing</span>
+                {% else %}
+                <span class="text-error font-medium">Highly skewed</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Spender -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-5">
+            <h3 class="text-sm font-bold text-base-content/60 uppercase tracking-wider mb-1">Biggest Provider</h3>
+            <div class="text-3xl font-bold truncate" title="{{ spender.name if spender else 'No data' }}">{{
+                spender.name if spender else "No data" }}</div>
+            {% if spender %}
+            <div class="text-sm mt-2 text-base-content/60">
+                Paid ₹{{ "%.0f"|format(spender.amount_inr) }} total
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Top Category -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body p-5">
+            <h3 class="text-sm font-bold text-base-content/60 uppercase tracking-wider mb-1">Top Category</h3>
+            <div class="text-2xl font-bold capitalize truncate">{{ spender.top_category if spender and
+                spender.top_category else "No data" }}</div>
+            <div class="text-sm mt-2 text-base-content/60">
+                Primary spend area
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+
+    <div class="card bg-base-100 shadow-sm border border-base-200 col-span-1 lg:col-span-2">
+        <div class="card-body p-2 md:p-6 min-h-[400px]">
+            <div class="w-full h-full flex items-center justify-center text-base-content/50"
+                hx-get="/groups/{{ group_id }}/analytics/charts/trend" hx-trigger="intersect once" hx-swap="innerHTML">
+                <span class="loading loading-spinner opacity-50"></span>
+                <span class="ml-3 font-medium">Loading trend data...</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="card bg-base-100 shadow-sm border border-base-200 min-h-[400px]">
+        <div class="card-body p-2 md:p-6 pb-2">
+            <div class="w-full h-full flex items-center justify-center text-base-content/50"
+                hx-get="/groups/{{ group_id }}/analytics/charts/categories" hx-trigger="intersect once"
+                hx-swap="innerHTML">
+                <span class="loading loading-spinner opacity-50"></span>
+                <span class="ml-3 font-medium">Loading category data...</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="card bg-base-100 shadow-sm border border-base-200 min-h-[400px]">
+        <div class="card-body p-2 md:p-6 pb-2">
+            <div class="w-full h-full flex items-center justify-center text-base-content/50"
+                hx-get="/groups/{{ group_id }}/analytics/charts/contributions" hx-trigger="intersect once"
+                hx-swap="innerHTML">
+                <span class="loading loading-spinner opacity-50"></span>
+                <span class="ml-3 font-medium">Loading contribution data...</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Anomalies -->
+{% if flags %}
+<div class="card bg-base-100 shadow-sm border border-base-200 mb-8 overflow-hidden">
+    <div class="bg-warning/10 border-b border-warning/20 px-6 py-4 flex items-center gap-3">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-warning" fill="none" viewBox="0 0 24 24"
+            stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <h2 class="text-xl font-bold text-warning-content">Spending Anomalies (Last 30 Days)</h2>
+    </div>
+    <div class="p-0 overflow-x-auto">
+        <table class="table table-zebra w-full">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Description</th>
+                    <th>Category</th>
+                    <th>Paid By</th>
+                    <th class="text-right">Amount</th>
+                    <th class="text-right">Severity</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for flag in flags %}
+                <tr>
+                    <td class="whitespace-nowrap">{{ flag.date }}</td>
+                    <td class="font-medium max-w-[200px] truncate" title="{{ flag.description }}">{{ flag.description }}
+                    </td>
+                    <td>
+                        <div class="badge badge-sm badge-ghost">{{ flag.category|title }}</div>
+                    </td>
+                    <td>{{ flag.paid_by }}</td>
+                    <td class="text-right font-bold text-error">₹{{ "%.0f"|format(flag.amount_inr) }}</td>
+                    <td class="text-right">
+                        <div class="tooltip tooltip-left" data-tip="Z-Score: {{ flag.z_score }}">
+                            <div class="radial-progress text-error text-xs border-2 border-base-200 font-bold bg-base-100"
+                                style="--value:{{ min(100, flag.z_score * 20) }}; --size:2rem; --thickness: 4px;">!
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

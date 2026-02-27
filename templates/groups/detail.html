@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="text-sm breadcrumbs mb-6 text-base-content/70">
+    <ul>
+        <li><a href="/groups" class="hover:text-primary transition-colors">Groups</a></li>
+        <li class="text-base-content font-medium">{{ group.name }}</li>
+    </ul>
+</div>
+
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+    <div>
+        <h1 class="text-3xl font-bold">{{ group.name }}</h1>
+        {% if group.description %}
+        <p class="text-base-content/70 mt-1">{{ group.description }}</p>
+        {% endif %}
+    </div>
+    <div class="flex gap-2 flex-wrap">
+        <a href="/groups/{{ group.id }}/analytics" class="btn btn-outline btn-secondary select-none">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            Analytics Dashboard
+        </a>
+        <button class="btn btn-outline select-none" onclick="invite_modal.showModal()">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+            </svg>
+            Invite Members
+        </button>
+        <button class="btn btn-primary select-none shadow-lg shadow-primary/30 hover:shadow-primary/50"
+            onclick="add_expense_modal.showModal()">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            Add an Expense
+        </button>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+    <!-- LEFT COL: Expenses (takes 2 cols on lg) -->
+    <div class="lg:col-span-2 space-y-6">
+        <h2 class="text-xl font-bold border-b border-base-300 pb-2">Recent Expenses</h2>
+
+        <div id="expense-list" class="space-y-4">
+            {% include "groups/partials/expense_list.html" %}
+        </div>
+    </div>
+
+    <!-- RIGHT COL: Balances & Settle Up -->
+    <div class="space-y-6">
+        <h2 class="text-xl font-bold border-b border-base-300 pb-2">Group Balances</h2>
+
+        <div id="balance-panel">
+            {% include "groups/partials/balance_panel.html" %}
+        </div>
+
+    </div>
+</div>
+
+<!-- Add Expense Modal -->
+<dialog id="add_expense_modal" class="modal">
+    <div class="modal-box w-11/12 max-w-3xl">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+        </form>
+        <h3 class="font-bold text-2xl mb-6">Add an Expense</h3>
+
+        <!-- Extracted form partial -->
+        {% include "groups/partials/add_expense_form.html" %}
+
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+<!-- Invite Modal -->
+<dialog id="invite_modal" class="modal">
+    <div class="modal-box w-full max-w-md">
+        <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+        </form>
+        <h3 class="font-bold text-lg mb-4 text-center">Invite User to Group</h3>
+
+        <p class="text-sm text-base-content/70 mb-6 text-center">Enter the email address of the user you want to invite.
+            They must have an account on SplitApp.</p>
+
+        <form hx-post="/groups/{{ group.id }}/invite" hx-target="#invite-result" hx-swap="innerHTML" class="space-y-4">
+            <div class="form-control">
+                <input type="email" name="email" placeholder="friend@example.com" class="input input-bordered w-full"
+                    required />
+            </div>
+
+            <div id="invite-result" class="min-h-[2.5rem]"></div>
+
+            <div class="modal-action !mt-2">
+                <button type="submit" class="btn btn-primary w-full">Send Invite</button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
+
+<script>
+    // General UI setup
+    document.addEventListener("DOMContentLoaded", function () {
+        // Clear forms on modal open 
+        document.getElementById('add_expense_modal').addEventListener('close', () => {
+            document.getElementById('add_expense_form').reset();
+            document.getElementById('split_type').dispatchEvent(new Event('change'));
+            document.getElementById('guest_list_container').innerHTML = '';
+            document.getElementById('guest_names_input').value = '';
+
+            // reset checkboxes
+            const cbs = document.querySelectorAll('.participant-cb');
+            cbs.forEach(cb => { cb.checked = true; cb.dispatchEvent(new Event('change')); });
+        });
+
+        document.getElementById('invite_modal').addEventListener('close', () => {
+            document.getElementById('invite-result').innerHTML = '';
+            document.querySelector('#invite_modal input[name="email"]').value = '';
+        });
+    });
+</script>
+{% endblock %}
