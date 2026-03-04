@@ -1,0 +1,23 @@
+<div class="flex flex-col gap-2">
+    {% for comment in expense.comments %}
+    <div class="flex gap-2 items-start">
+        <div class="avatar placeholder flex-shrink-0">
+            <div class="bg-neutral text-neutral-content rounded-full w-6">
+                <span class="text-xs">{{ comment.user.name[0] | upper }}</span>
+            </div>
+        </div>
+        <div class="bg-base-300 rounded-lg px-3 py-2 flex-1">
+            <div class="text-xs font-medium opacity-60">{{ comment.user.name }}
+                · {{ comment.created_at.strftime('%d %b, %H:%M') }}</div>
+            <div class="text-sm mt-0.5">{{ comment.content }}</div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <form hx-post="/groups/{{ group_id }}/expenses/{{ expense.id }}/comments" hx-target="this" hx-swap="outerHTML"
+        class="flex gap-2 mt-1">
+        <input type="text" name="content" placeholder="Add a comment..." class="input input-bordered input-xs flex-1"
+            required />
+        <button type="submit" class="btn btn-primary btn-xs">Post</button>
+    </form>
+</div>

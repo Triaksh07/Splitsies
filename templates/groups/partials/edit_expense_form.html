@@ -1,5 +1,9 @@
-<form id="add_expense_form" hx-post="/groups/{{ group.id }}/expenses" hx-target="#expense-list" hx-swap="innerHTML"
-    class="space-y-6" onsubmit="prepareSubmit(event)">
+<form method="dialog">
+    <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+</form>
+<h3 class="font-bold text-2xl mb-6">Edit Expense</h3>
+<form id="edit_expense_form" hx-post="/groups/{{ group_id }}/expenses/{{ expense.id }}/edit" hx-target="#expense-list"
+    hx-swap="innerHTML" class="space-y-6" onsubmit="prepareSubmit(event)">
     <input type="hidden" name="participant_ids" id="participant_ids" value="">
     <input type="hidden" name="guest_names" id="guest_names" value="">
     <input type="hidden" name="split_data" id="split_data" value="{}">
@@ -9,7 +13,7 @@
         <div class="space-y-4">
             <div class="form-control">
                 <label class="label"><span class="label-text font-bold">What was this for?</span></label>
-                <input type="text" name="description" placeholder="E.g. Dinner at Taj"
+                <input type="text" name="description" placeholder="E.g. Dinner at Taj" value="{{ expense.description }}"
                     class="input input-bordered w-full" required />
             </div>
 
@@ -17,12 +21,12 @@
                 <label class="label"><span class="label-text font-bold">Amount & Currency</span></label>
                 <div class="join w-full">
                     <select name="currency" class="select select-bordered join-item w-1/3 min-w-[5rem]">
-                        <option value="INR" {% if user.preferred_currency=='INR' %}selected{% endif %}>INR</option>
-                        <option value="USD" {% if user.preferred_currency=='USD' %}selected{% endif %}>USD</option>
-                        <option value="GBP" {% if user.preferred_currency=='GBP' %}selected{% endif %}>GBP</option>
+                        <option value="INR" {% if expense.currency=='INR' %}selected{% endif %}>INR</option>
+                        <option value="USD" {% if expense.currency=='USD' %}selected{% endif %}>USD</option>
+                        <option value="GBP" {% if expense.currency=='GBP' %}selected{% endif %}>GBP</option>
                     </select>
                     <input type="number" step="0.01" name="amount" id="expense_amount" placeholder="0.00"
-                        class="input input-bordered join-item w-2/3 flex-1" required />
+                        value="{{ expense.amount }}" class="input input-bordered join-item w-2/3 flex-1" required />
                 </div>
             </div>
 
@@ -32,7 +36,7 @@
                     onchange="toggleGuestPayer(this.value)" required>
                     <option value="">-- Select participant --</option>
                     {% for p in participants %}
-                    <option value="{{ p.id }}" {% if p.linked_user_id==user.id %}selected{% endif %}>
+                    <option value="{{ p.id }}" {% if p.id==expense.paid_by_id %}selected{% endif %}>
                         {{ p.display_name }} {% if p.linked_user_id == user.id %}(You){% endif %}
                         {% if p.is_guest %} (Guest){% endif %}
                     </option>
@@ -47,25 +51,30 @@
                 <div class="form-control">
                     <label class="label"><span class="label-text font-bold">Category</span></label>
                     <select name="category" class="select select-bordered w-full" required>
-                        <option value="food">Food & Drink</option>
-                        <option value="transport">Transport</option>
-                        <option value="accommodation">Accommodation</option>
-                        <option value="utilities">Utilities & Bills</option>
-                        <option value="entertainment">Entertainment</option>
-                        <option value="shopping">Shopping</option>
-                        <option value="other" selected>Other</option>
+                        <option value="food" {% if expense.category=='food' %}selected{% endif %}>Food & Drink</option>
+                        <option value="transport" {% if expense.category=='transport' %}selected{% endif %}>Transport
+                        </option>
+                        <option value="accommodation" {% if expense.category=='accommodation' %}selected{% endif %}>
+                            Accommodation</option>
+                        <option value="utilities" {% if expense.category=='utilities' %}selected{% endif %}>Utilities &
+                            Bills</option>
+                        <option value="entertainment" {% if expense.category=='entertainment' %}selected{% endif %}>
+                            Entertainment</option>
+                        <option value="shopping" {% if expense.category=='shopping' %}selected{% endif %}>Shopping
+                        </option>
+                        <option value="other" {% if expense.category=='other' %}selected{% endif %}>Other</option>
                     </select>
                 </div>
                 <div class="form-control">
                     <label class="label"><span class="label-text font-bold">Date</span></label>
-                    <input type="date" name="expense_date" value="{{ today }}"
+                    <input type="date" name="expense_date" value="{{ expense.date.isoformat() }}"
                         class="input input-bordered w-full text-sm" required />
                 </div>
             </div>
 
             <div class="form-control">
                 <label class="label"><span class="label-text font-bold">Notes (Optional)</span></label>
-                <input type="text" name="notes" placeholder="Any extra details..."
+                <input type="text" name="notes" placeholder="Any extra details..." value="{{ expense.notes or '' }}"
                     class="input input-bordered w-full" />
             </div>
         </div>
@@ -77,10 +86,13 @@
                 <select name="split_type" id="split_type"
                     class="select select-bordered select-primary w-full shadow-sm text-base mb-2" required
                     onchange="toggleSplitInputs()">
-                    <option value="equal" selected>Equally (=)</option>
-                    <option value="exact">Exact Amounts (₹/$)</option>
-                    <option value="percentage">Percentages (%)</option>
-                    <option value="shares">Shares (1x, 2x)</option>
+                    <option value="equal" {% if expense.split_type=='equal' %}selected{% endif %}>Equally (=)</option>
+                    <option value="exact" {% if expense.split_type=='exact' %}selected{% endif %}>Exact Amounts (₹/$)
+                    </option>
+                    <option value="percentage" {% if expense.split_type=='percentage' %}selected{% endif %}>Percentages
+                        (%)</option>
+                    <option value="shares" {% if expense.split_type=='shares' %}selected{% endif %}>Shares (1x, 2x)
+                    </option>
                 </select>
             </div>
 
@@ -90,12 +102,15 @@
                 <label class="label py-1"><span class="label-text font-semibold text-base-content/70">Select who is
                         involved</span></label>
                 <div class="max-h-56 overflow-y-auto pr-2 space-y-2 mt-2 -mr-2">
+                    {% set involved_ids = [] %}
+                    {% for s in expense.splits %}{% set _ = involved_ids.append(s.participant_id) %}{% endfor %}
                     {% for p in participants %}
                     <label
                         class="flex justify-between items-center bg-base-100 p-3 rounded-lg border border-base-300 hover:border-primary/50 transition-colors cursor-pointer group">
                         <div class="flex items-center gap-3">
                             <input type="checkbox" class="checkbox checkbox-sm checkbox-primary participant-cb"
-                                value="{{ p.id }}" checked onchange="handleCheckboxChange(this)" />
+                                value="{{ p.id }}" {% if p.id in involved_ids %}checked{% endif %}
+                                onchange="handleCheckboxChange(this)" />
                             <span
                                 class="label-text font-medium select-none group-hover:text-primary transition-colors">{{
                                 p.display_name }} {% if p.linked_user_id == user.id %}(You){% endif %}{% if p.is_guest
@@ -129,8 +144,9 @@
     </div>
 
     <div class="modal-action mt-8 pt-4 border-t border-base-300">
-        <button type="button" class="btn btn-ghost" onclick="add_expense_modal.close()">Cancel</button>
-        <button type="submit" class="btn btn-primary px-8" id="submit_expense_btn">Save Expense</button>
+        <button type="button" class="btn btn-ghost"
+            onclick="document.getElementById('edit-expense-modal').close()">Cancel</button>
+        <button type="submit" class="btn btn-primary px-8" id="submit_expense_btn">Save Changes</button>
     </div>
 </form>
 
@@ -316,15 +332,23 @@
 
     // Re-enable button on HTMX response (in case form isn't wiped or throws error)
     document.body.addEventListener('htmx:afterRequest', function (evt) {
-        if (evt.target.id === 'add_expense_form') {
+        if (evt.target.id === 'edit_expense_form') {
             const btn = document.getElementById('submit_expense_btn');
             if (btn) {
-                btn.innerHTML = 'Save Expense';
+                btn.innerHTML = 'Save Changes';
                 btn.disabled = false;
             }
-            if (evt.detail.successful && evt.detail.elt.id === "add_expense_form") {
-                document.getElementById('add_expense_modal').close();
+            if (evt.detail.successful && evt.detail.elt.id === "edit_expense_form") {
+                document.getElementById('edit-expense-modal').close();
             }
         }
     });
+
+    // Run toggle manually on load
+    setTimeout(() => {
+        if (typeof toggleSplitInputs === 'function') {
+            toggleSplitInputs();
+            document.querySelectorAll('#edit_expense_form .participant-cb').forEach(handleCheckboxChange);
+        }
+    }, 50);
 </script>

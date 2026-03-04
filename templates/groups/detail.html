@@ -15,7 +15,15 @@
         <p class="text-base-content/70 mt-1">{{ group.description }}</p>
         {% endif %}
     </div>
-    <div class="flex gap-2 flex-wrap">
+    <div class="flex gap-2 flex-wrap items-center">
+        {% if not group.is_personal %}
+        <form action="/groups/{{ group.id }}/leave" method="POST" class="m-0"
+            onsubmit="return confirm('Are you sure you want to leave this group?')">
+            <button type="submit" class="btn btn-ghost btn-sm text-error">
+                Leave Group
+            </button>
+        </form>
+        {% endif %}
         <a href="/groups/{{ group.id }}/analytics" class="btn btn-outline btn-secondary select-none">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24"
                 stroke="currentColor">
@@ -64,6 +72,16 @@
 
     </div>
 </div>
+
+<!-- Edit Expense Modal -->
+<dialog id="edit-expense-modal" class="modal">
+    <div class="modal-box w-11/12 max-w-3xl">
+        <div id="edit-expense-modal-content">
+            <!-- loaded via HTMX -->
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
 
 <!-- Add Expense Modal -->
 <dialog id="add_expense_modal" class="modal">

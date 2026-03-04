@@ -5,7 +5,7 @@ from app.database import get_db
 from app.models.user import User
 from app.models.group import Group, GroupMember
 from app.models.participant import Participant
-from app.models.expense import Expense
+from app.models.expense import Expense, ExpenseSplit
 from app.core.auth import get_current_user
 from app.core.balances import compute_balances, simplify_debts
 from fastapi.templating import Jinja2Templates
@@ -119,3 +119,52 @@ async def invite_member(
 
     db.commit()
     return HTMLResponse('<div class="alert alert-success">Successfully added member!</div>')
+
+
+@router.post("/{group_id}/leave", response_class=HTMLResponse)
+async def leave_group(
+    group_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    group = db.get(Group, group_id)
+    if not group or group.is_personal:
+        raise HTTPException(status_code=403, detail="Cannot leave this group")
+
+    membership = db.query(GroupMember).filter(
+        GroupMember.group_id == group_id,
+        GroupMember.user_id == current_user.id
+    ).first()
+    if not membership:
+        raise HTTPException(status_code=403, detail="Not a member")
+
+    # Remove membership
+    db.delete(membership)
+
+    # Remove participant row only if they have no expense history
+    participant = db.query(Participant).filter(
+        Participant.group_id == group_id,
+        Participant.linked_user_id == current_user.id
+    ).first()
+    if participant:
+        has_expenses = db.query(Expense).filter(
+            Expense.paid_by_id == participant.id
+        ).first()
+        has_splits = db.query(ExpenseSplit).filter(
+            ExpenseSplit.participant_id == participant.id
+        ).first()
+        if not has_expenses and not has_splits:
+            db.delete(participant)
+
+    db.flush()
+
+    # Check if group is now empty — if so, delete it
+    remaining = db.query(GroupMember).filter(
+        GroupMember.group_id == group_id
+    ).count()
+    if remaining == 0:
+        db.delete(group)
+
+    db.commit()
+    return RedirectResponse(url="/groups/", status_code=303)

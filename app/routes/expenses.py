@@ -25,6 +25,7 @@ async def create_expense(
     amount: Decimal = Form(...),
     currency: str = Form(...),
     paid_by_id: int = Form(...),
+    paid_by_guest_name: str = Form(""),
     split_type: str = Form(...),
     category: str = Form(...),
     expense_date: date = Form(...),
@@ -38,6 +39,26 @@ async def create_expense(
     # Verify group membership
     if not db.query(GroupMember).filter_by(group_id=group_id, user_id=current_user.id).first():
         raise HTTPException(status_code=403, detail="Not a member of this group")
+
+    # Handle guest payer
+    paid_by_guest_name = paid_by_guest_name.strip() if paid_by_guest_name else ""
+    if paid_by_guest_name and (not paid_by_id or paid_by_id == 0):
+        existing_guest = db.query(Participant).filter(
+            Participant.group_id == group_id,
+            Participant.display_name == paid_by_guest_name,
+            Participant.is_guest == True,
+        ).first()
+        if existing_guest:
+            paid_by_id = existing_guest.id
+        else:
+            new_guest = Participant(
+                group_id=group_id,
+                display_name=paid_by_guest_name,
+                is_guest=True,
+            )
+            db.add(new_guest)
+            db.flush()
+            paid_by_id = new_guest.id
 
     # Handle new guests
     new_guest_ids = []
@@ -98,6 +119,181 @@ async def create_expense(
     expenses = db.query(Expense).filter(Expense.group_id == group_id).order_by(Expense.date.desc()).limit(50).all()
     
     return templates.TemplateResponse("groups/partials/expense_list.html", {"request": request, "expenses": expenses})
+
+
+@router.get("/{expense_id}/edit", response_class=HTMLResponse)
+async def edit_expense_form(
+    group_id: int,
+    expense_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    from datetime import date
+    if not db.query(GroupMember).filter_by(group_id=group_id, user_id=current_user.id).first():
+        raise HTTPException(status_code=403, detail="Not a member of this group")
+    expense = db.get(Expense, expense_id)
+    if not expense or expense.group_id != group_id:
+        raise HTTPException(status_code=404)
+    participants = db.query(Participant).filter(
+        Participant.group_id == group_id
+    ).all()
+    return templates.TemplateResponse(
+        "groups/partials/edit_expense_form.html",
+        {
+            "request": request,
+            "expense": expense,
+            "participants": participants,
+            "group_id": group_id,
+            "user": current_user,
+            "today": date.today().isoformat(),
+        }
+    )
+
+
+@router.post("/{expense_id}/edit")
+async def edit_expense(
+    group_id: int,
+    expense_id: int,
+    request: Request,
+    description: str = Form(...),
+    amount: str = Form(...),
+    currency: str = Form("INR"),
+    paid_by_id: int = Form(...),
+    split_type: str = Form("equal"),
+    category: str = Form("other"),
+    expense_date: str = Form(...),
+    notes: str = Form(""),
+    split_data: str = Form("{}"),
+    participant_ids: str = Form(""),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if not db.query(GroupMember).filter_by(group_id=group_id, user_id=current_user.id).first():
+        raise HTTPException(status_code=403, detail="Not a member of this group")
+    expense = db.get(Expense, expense_id)
+    if not expense or expense.group_id != group_id:
+        raise HTTPException(status_code=404)
+
+    # Parse and recalculate
+    p_ids = [int(x) for x in participant_ids.split(",") if x.strip()]
+    amount_decimal = Decimal(amount)
+    amount_inr = convert_to_inr(amount_decimal, currency, db)
+    split_input = json.loads(split_data) if split_data else {}
+    splits = calculate_splits(amount_inr, p_ids, split_type, split_input)
+
+    # Update expense fields
+    from datetime import date
+    expense.description = description.strip()
+    expense.amount = amount_decimal
+    expense.currency = currency
+    expense.amount_inr = amount_inr
+    expense.paid_by_id = paid_by_id
+    expense.split_type = split_type
+    expense.category = category
+    expense.date = date.fromisoformat(expense_date)
+    expense.notes = notes.strip() or None
+
+    # Delete old splits and create new ones
+    for split in expense.splits:
+        db.delete(split)
+    db.flush()
+
+    for participant_id, amount_owed in splits:
+        db.add(ExpenseSplit(
+            expense_id=expense.id,
+            participant_id=participant_id,
+            amount_owed_inr=amount_owed,
+        ))
+
+    db.commit()
+
+    # Return updated expense list
+    expenses = (
+        db.query(Expense)
+        .filter(Expense.group_id == group_id)
+        .order_by(Expense.date.desc(), Expense.created_at.desc())
+        .limit(50).all()
+    )
+    participants = db.query(Participant).filter(
+        Participant.group_id == group_id
+    ).all()
+    from app.core.balances import compute_balances, simplify_debts
+    from datetime import date as date_cls
+    balances = compute_balances(group_id, db)
+    debt_instructions = simplify_debts(balances)
+
+    return templates.TemplateResponse(
+        "groups/partials/expense_list.html",
+        {
+            "request": request,
+            "group_id": group_id,
+            "expenses": expenses,
+            "participants": participants,
+            "balances": balances,
+            "debt_instructions": debt_instructions,
+            "user": current_user,
+            "today": date_cls.today().isoformat(),
+        }
+    )
+
+
+@router.get("/{expense_id}/comments", response_class=HTMLResponse)
+async def get_comments(
+    group_id: int,
+    expense_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if not db.query(GroupMember).filter_by(group_id=group_id, user_id=current_user.id).first():
+        raise HTTPException(status_code=403, detail="Not a member of this group")
+    expense = db.get(Expense, expense_id)
+    if not expense:
+        raise HTTPException(status_code=404)
+    return templates.TemplateResponse(
+        "groups/partials/comments.html",
+        {
+            "request": request,
+            "expense": expense,
+            "group_id": group_id,
+            "user": current_user,
+        }
+    )
+
+
+@router.post("/{expense_id}/comments", response_class=HTMLResponse)
+async def add_comment(
+    group_id: int,
+    expense_id: int,
+    request: Request,
+    content: str = Form(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    from app.models.comment import ExpenseComment
+    if not db.query(GroupMember).filter_by(group_id=group_id, user_id=current_user.id).first():
+        raise HTTPException(status_code=403, detail="Not a member of this group")
+    expense = db.get(Expense, expense_id)
+    if not expense:
+        raise HTTPException(status_code=404)
+    comment = ExpenseComment(
+        expense_id=expense_id,
+        user_id=current_user.id,
+        content=content.strip(),
+    )
+    db.add(comment)
+    db.commit()
+    db.refresh(expense)
+    return templates.TemplateResponse(
+        "groups/partials/comments.html",
+        {
+            "request": request,
+            "expense": expense,
+            "group_id": group_id,
+            "user": current_user,
+        }
+    )
 
 
 @router.delete("/{expense_id}", response_class=HTMLResponse)
