@@ -1,5 +1,8 @@
 import asyncio
-asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())  # Windows fix
+import sys
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
@@ -11,7 +14,7 @@ from app.routes import auth, groups, expenses, settlements, analytics
 
 Base.metadata.create_all(bind=engine)  # creates all tables on startup
 
-app = FastAPI(title="SplitApp", version="1.0.0")
+app = FastAPI(title="Splitsies", version="1.0.0")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.include_router(auth.router)
