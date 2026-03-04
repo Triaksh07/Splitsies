@@ -24,8 +24,8 @@ class Expense(Base):
     group = relationship("Group", back_populates="expenses")
     paid_by_participant = relationship("Participant", back_populates="paid_expenses")
     splits = relationship("ExpenseSplit", back_populates="expense", cascade="all, delete-orphan")
-    comments = relationship("ExpenseComment", back_populates="expense", cascade="all, delete-orphan", order_by="ExpenseComment.created_at")
-
+comments = relationship("ExpenseComment", back_populates="expense",
+                        cascade="all, delete-orphan", order_by="app.models.comment.ExpenseComment.created_at")
 
 class ExpenseSplit(Base):
     __tablename__ = "expense_splits"
