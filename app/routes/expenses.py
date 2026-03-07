@@ -118,8 +118,15 @@ async def create_expense(
     # Re-fetch for updated fragment
     expenses = db.query(Expense).filter(Expense.group_id == group_id).order_by(Expense.date.desc()).limit(50).all()
     
-    return templates.TemplateResponse("groups/partials/expense_list.html", {"request": request, "expenses": expenses})
+    participants = db.query(Participant).filter(Participant.group_id == group_id).all()
 
+    return templates.TemplateResponse("groups/partials/expense_list.html", {
+        "request": request,
+        "expenses": expenses,
+        "group_id": group_id,
+        "participants": participants,
+        "user": current_user,
+    })
 
 @router.get("/{expense_id}/edit", response_class=HTMLResponse)
 async def edit_expense_form(

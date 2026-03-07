@@ -1,5 +1,5 @@
 <form id="add_expense_form" hx-post="/groups/{{ group.id }}/expenses" hx-target="#expense-list" hx-swap="innerHTML"
-    class="space-y-6" onsubmit="prepareSubmit(event)">
+    class="space-y-6">
     <input type="hidden" name="participant_ids" id="participant_ids" value="">
     <input type="hidden" name="guest_names" id="guest_names" value="">
     <input type="hidden" name="split_data" id="split_data" value="{}">
@@ -130,7 +130,8 @@
 
     <div class="modal-action mt-8 pt-4 border-t border-base-300">
         <button type="button" class="btn btn-ghost" onclick="add_expense_modal.close()">Cancel</button>
-        <button type="submit" class="btn btn-primary px-8" id="submit_expense_btn">Save Expense</button>
+        <button type="submit" class="btn btn-primary px-8" id="submit_expense_btn" onclick="prepareSubmit()">Save
+            Expense</button>
     </div>
 </form>
 
@@ -244,9 +245,8 @@
         });
     }
 
-    function prepareSubmit(e) {
-        e.preventDefault(); // Pause HTMX
-        const form = e.target;
+    function prepareSubmit() {
+        const form = document.getElementById('add_expense_form');
 
         // 1. Participant IDs
         const checkedCbs = form.querySelectorAll('.participant-cb:checked');
@@ -257,7 +257,6 @@
 
         const existingPids = [];
         const newGuestNames = [];
-
         checkedCbs.forEach(cb => {
             if (cb.value.startsWith('temp_')) {
                 newGuestNames.push(cb.getAttribute('data-name'));
@@ -269,35 +268,29 @@
         document.getElementById('participant_ids').value = existingPids.join(',');
         document.getElementById('guest_names').value = newGuestNames.join(',');
 
-        // 2. Split Data JSON
+        // 2. Split data
         const splitType = document.getElementById('split_type').value;
         let splitData = {};
 
         if (splitType !== 'equal') {
             const inputs = form.querySelectorAll('.split-val-input:not([disabled])');
-            let key = '';
-            if (splitType === 'exact') key = 'amounts';
-            if (splitType === 'percentage') key = 'percentages';
-            if (splitType === 'shares') key = 'shares';
-
+            let key = splitType === 'exact' ? 'amounts' : splitType === 'percentage' ? 'percentages' : 'shares';
             splitData[key] = {};
             let sum = 0;
-
             inputs.forEach(input => {
                 const val = parseFloat(input.value) || 0;
                 splitData[key][input.getAttribute('data-pid')] = splitType === 'shares' ? Math.round(val) : val.toString();
                 sum += val;
             });
 
-            // Basic frontend validation
             if (splitType === 'percentage' && Math.abs(sum - 100) > 0.1) {
-                alert(`Percentages must sum to 100. Current sum is ${sum.toFixed(1)}%.`);
+                alert(`Percentages must sum to 100. Current sum: ${sum.toFixed(1)}%`);
                 return;
             }
             if (splitType === 'exact') {
                 const total = parseFloat(document.getElementById('expense_amount').value) || 0;
                 if (Math.abs(sum - total) > 0.05) {
-                    alert(`Exact amounts must sum to the total (${total}). Current sum is ${sum.toFixed(2)}.`);
+                    alert(`Exact amounts must sum to ${total}. Current sum: ${sum.toFixed(2)}`);
                     return;
                 }
             }
@@ -305,13 +298,13 @@
 
         document.getElementById('split_data').value = JSON.stringify(splitData);
 
-        // Prevent double submit visually
+        // 3. Disable button and submit via HTMX
         const btn = document.getElementById('submit_expense_btn');
         btn.innerHTML = '<span class="loading loading-spinner loading-sm"></span> Saving...';
         btn.disabled = true;
 
-        // Resume HTMX request
-        htmx.trigger(form, 'htmx:submit');
+        htmx.process(form);
+        htmx.trigger(form, 'submit');
     }
 
     // Re-enable button on HTMX response (in case form isn't wiped or throws error)
