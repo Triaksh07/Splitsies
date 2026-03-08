@@ -133,7 +133,7 @@
                         ✎
                     </button>
                     {% if expense.created_by == user.id %}
-                    <button hx-delete="/groups/{{ group.id }}/expenses/{{ expense.id }}"
+                    <button hx-delete="/groups/{{ group_id }}/expenses/{{ expense.id }}"
                         hx-confirm="Are you sure you want to delete this expense? This action cannot be undone and will recalculate all balances."
                         hx-target="#expense-{{ expense.id }}" hx-swap="outerHTML"
                         class="btn btn-sm btn-circle btn-ghost text-base-content/30 hover:text-error hover:bg-error/10 transition-colors">
