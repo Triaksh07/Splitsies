@@ -73,6 +73,7 @@ async def group_detail(group_id: int, request: Request, db: Session = Depends(ge
         {
             "request": request,
             "group": group,
+            "group_id": group_id,
             "participants": participants,
             "expenses": expenses,
             "balances": balances,
