@@ -1,15 +1,33 @@
 <div class="flex flex-col gap-2">
     {% for comment in expense.comments %}
-    <div class="flex gap-2 items-start">
+    <div class="flex gap-2 items-start" id="comment-{{ comment.id }}">
         <div class="avatar placeholder flex-shrink-0">
             <div class="bg-neutral text-neutral-content rounded-full w-6">
                 <span class="text-xs">{{ comment.user.name[0] | upper }}</span>
             </div>
         </div>
         <div class="bg-base-300 rounded-lg px-3 py-2 flex-1">
-            <div class="text-xs font-medium opacity-60">{{ comment.user.name }}
-                · {{ comment.created_at.strftime('%d %b, %H:%M') }}</div>
-            <div class="text-sm mt-0.5">{{ comment.content }}</div>
+            <div class="flex justify-between items-start">
+                <div class="text-xs font-medium opacity-60">
+                    {{ comment.user.name }} · {{ comment.created_at.strftime('%d %b, %H:%M') }}
+                </div>
+                {% if comment.user_id == user.id %}
+                <button class="text-xs text-base-content/30 hover:text-primary ml-2"
+                    onclick="toggleEditComment({{ comment.id }})">edit</button>
+                {% endif %}
+            </div>
+            <div class="text-sm mt-0.5" id="comment-text-{{ comment.id }}">{{ comment.content }}</div>
+            {% if comment.user_id == user.id %}
+            <form id="edit-form-{{ comment.id }}"
+                hx-post="/groups/{{ group_id }}/expenses/{{ expense.id }}/comments/{{ comment.id }}/edit"
+                hx-target="#comment-{{ comment.id }}" hx-swap="outerHTML" class="hidden mt-2 flex gap-2">
+                <input type="text" name="content" value="{{ comment.content }}"
+                    class="input input-bordered input-xs flex-1" required />
+                <button type="submit" class="btn btn-primary btn-xs">Save</button>
+                <button type="button" class="btn btn-ghost btn-xs"
+                    onclick="toggleEditComment({{ comment.id }})">Cancel</button>
+            </form>
+            {% endif %}
         </div>
     </div>
     {% endfor %}
@@ -21,3 +39,12 @@
         <button type="submit" class="btn btn-primary btn-xs">Post</button>
     </form>
 </div>
+
+<script>
+    function toggleEditComment(id) {
+        const text = document.getElementById('comment-text-' + id);
+        const form = document.getElementById('edit-form-' + id);
+        text.classList.toggle('hidden');
+        form.classList.toggle('hidden');
+    }
+</script>

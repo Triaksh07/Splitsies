@@ -303,6 +303,32 @@ async def add_comment(
     )
 
 
+@router.post("/{expense_id}/comments/{comment_id}/edit", response_class=HTMLResponse)
+async def edit_comment(
+    group_id: int,
+    expense_id: int,
+    comment_id: int,
+    request: Request,
+    content: str = Form(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    from app.models.comment import ExpenseComment
+    _assert_member(group_id, current_user, db)
+    comment = db.get(ExpenseComment, comment_id)
+    if not comment or comment.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Cannot edit this comment")
+    comment.content = content.strip()
+    db.commit()
+    expense = db.get(Expense, expense_id)
+    return templates.TemplateResponse("groups/partials/comments.html", {
+        "request": request,
+        "expense": expense,
+        "group_id": group_id,
+        "user": current_user,
+    })
+
+
 @router.delete("/{expense_id}", response_class=HTMLResponse)
 async def delete_expense(
     group_id: int,

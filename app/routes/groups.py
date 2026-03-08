@@ -66,7 +66,7 @@ async def group_detail(group_id: int, request: Request, db: Session = Depends(ge
     expenses = db.query(Expense).filter(Expense.group_id == group_id).order_by(Expense.date.desc()).limit(50).all()
 
     balances = compute_balances(group_id, db)
-    debt_instructions = simplify_debts(balances)
+    debt_instructions = simplify_debts(balances) if group.simplify_debts else []
 
     return templates.TemplateResponse(
         "groups/detail.html",
@@ -169,3 +169,31 @@ async def leave_group(
 
     db.commit()
     return RedirectResponse(url="/groups/", status_code=303)
+
+@router.post("/{group_id}/toggle-simplify", response_class=HTMLResponse)
+async def toggle_simplify_debts(
+    group_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if not db.query(GroupMember).filter_by(group_id=group_id, user_id=current_user.id).first():
+        raise HTTPException(status_code=403)
+
+    group = db.get(Group, group_id)
+    group.simplify_debts = not group.simplify_debts
+    db.commit()
+
+    balances = compute_balances(group_id, db)
+    from app.core.balances import simplify_debts as simplify_debts_fn
+    debt_instructions = simplify_debts_fn(balances) if group.simplify_debts else []
+
+    return templates.TemplateResponse("groups/partials/balance_panel.html", {
+        "request": request,
+        "group": group,
+        "group_id": group_id,
+        "balances": balances,
+        "debt_instructions": debt_instructions,
+        "today": date.today().isoformat(),
+        "user": current_user,
+    })

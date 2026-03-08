@@ -18,6 +18,7 @@ class Group(Base):
     participants = relationship("Participant", back_populates="group")
     expenses = relationship("Expense", back_populates="group")
     settlements = relationship("Settlement", back_populates="group")
+    simplify_debts: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
 
 class GroupMember(Base):
